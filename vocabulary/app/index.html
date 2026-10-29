@@ -1,0 +1,425 @@
+<title>Highlighted Words</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap">
+<style>
+/* Layout: one narrow reading column; decks on home, one card at a time while studying.
+   The word is drawn with a cyan highlighter stroke, like the marks in the book. */
+:root {
+  --paper: #eef2f4;
+  --card: #ffffff;
+  --ink: #15222c;
+  --muted: #5a6a76;
+  --line: #d3dde3;
+  --mark: #86dcf0;
+  --mark-ink: #0e2a35;
+  --accent: #1d5d89;
+  --good: #2c7a4d;
+  --bad: #b2463a;
+  --good-soft: #e1f1e7;
+  --bad-soft: #f7e3e0;
+  --font-word: "Literata", Georgia, "Times New Roman", serif;
+  --font-ui: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f171d; --card: #172430; --ink: #e5edf2; --muted: #93a5b2; --line: #2a3b48;
+    --mark: #1f7d96; --mark-ink: #f1fbff; --accent: #72bce8; --good: #5cc489; --bad: #ea7d6f;
+    --good-soft: #193427; --bad-soft: #3a211e; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f171d; --card: #172430; --ink: #e5edf2; --muted: #93a5b2; --line: #2a3b48;
+  --mark: #1f7d96; --mark-ink: #f1fbff; --accent: #72bce8; --good: #5cc489; --bad: #ea7d6f;
+  --good-soft: #193427; --bad-soft: #3a211e; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  background: var(--paper); color: var(--ink);
+  font-family: var(--font-ui); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+}
+.wrap { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, .deck:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+header.top { display: flex; flex-direction: column; gap: 4px; }
+header.top h1 { font-family: var(--font-word); font-weight: 600; font-size: 28px; margin: 0; text-wrap: balance; }
+header.top h1 span { background: linear-gradient(transparent 18%, var(--mark) 18%, var(--mark) 88%, transparent 88%); color: var(--mark-ink); padding: 0 4px; border-radius: 3px 6px 4px 7px; }
+.summary { color: var(--muted); margin: 0; font-variant-numeric: tabular-nums; }
+
+.banner { background: var(--bad-soft); color: var(--ink); border-radius: 10px; padding: 10px 14px; font-size: 15px; }
+
+/* Decks */
+.decks { display: flex; flex-direction: column; gap: 14px; }
+.deck { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.deck h2 { font-family: var(--font-word); font-size: 20px; margin: 0; line-height: 1.3; }
+.deck .by { color: var(--muted); font-size: 14px; margin: 2px 0 0; }
+.bar { display: flex; height: 10px; border-radius: 99px; overflow: hidden; background: var(--line); }
+.bar i { display: block; height: 100%; }
+.bar .m { background: var(--good); }
+.bar .l { background: var(--accent); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.legend b { color: var(--ink); }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { border: 0; border-radius: 10px; padding: 11px 18px; font-weight: 700; }
+.btn.primary { background: var(--accent); color: var(--card); }
+.btn.quiet { background: transparent; border: 1px solid var(--line); }
+.btn:disabled { opacity: .5; cursor: default; }
+.how { color: var(--muted); font-size: 14px; margin: 0; }
+
+/* Study */
+.studybar { display: flex; align-items: center; gap: 12px; }
+.studybar .close { border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 6px 12px; }
+.studybar .count { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+.track { height: 4px; background: var(--line); border-radius: 99px; overflow: hidden; }
+.track i { display: block; height: 100%; background: var(--accent); transition: width .25s; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px 22px; display: flex; flex-direction: column; gap: 16px; min-height: 300px; }
+.kind { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.word { font-family: var(--font-word); font-weight: 600; font-size: 34px; line-height: 1.2; margin: 0; overflow-wrap: anywhere; }
+.word span, .sentence mark { background: linear-gradient(transparent 14%, var(--mark) 14%, var(--mark) 90%, transparent 90%); color: var(--mark-ink); border-radius: 3px 7px 4px 8px; padding: 0 3px; }
+.sentence { font-family: var(--font-word); font-style: italic; font-size: 18px; line-height: 1.6; margin: 0; }
+.blank { font-style: normal; font-weight: 600; white-space: nowrap; }
+.gap { display: inline-block; width: 4.5em; border-bottom: 2px solid var(--ink); margin-left: 2px; }
+.hint { color: var(--muted); margin: 0; }
+.back { border-top: 1px dashed var(--line); padding-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.meaning { font-size: 20px; margin: 0; }
+.detail { color: var(--muted); margin: 0; font-size: 15px; }
+.source { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+.reveal { width: 100%; padding: 15px; }
+.answer { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.answer button { border: 2px solid; border-radius: 12px; padding: 14px 10px; font-weight: 700; line-height: 1.3; }
+.answer .no { border-color: var(--bad); color: var(--bad); background: var(--bad-soft); }
+.answer .yes { border-color: var(--good); color: var(--good); background: var(--good-soft); }
+.keys { color: var(--muted); font-size: 13px; text-align: center; margin: 0; }
+@media (hover: none) { .keys { display: none; } }
+
+/* Done */
+.done { text-align: center; align-items: center; justify-content: center; }
+.done h2 { font-family: var(--font-word); font-size: 26px; margin: 0; }
+.tally { display: flex; gap: 28px; justify-content: center; font-variant-numeric: tabular-nums; }
+.tally div { display: flex; flex-direction: column; }
+.tally b { font-size: 30px; }
+
+/* Word list */
+.list { display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.row { border: 0; background: transparent; text-align: left; padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--line); }
+.row:first-child { border-top: 0; }
+.row .head { display: flex; align-items: baseline; gap: 10px; }
+.row .w { font-family: var(--font-word); font-weight: 600; font-size: 18px; min-width: 0; overflow-wrap: anywhere; }
+.row .m { color: var(--muted); font-size: 14px; }
+.chip { margin-left: auto; font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 99px; white-space: nowrap; }
+.chip.mastered { background: var(--good-soft); color: var(--good); }
+.chip.learning { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.chip.new { background: var(--paper); color: var(--muted); }
+.empty { background: var(--card); border: 1px dashed var(--line); border-radius: var(--radius); padding: 24px; color: var(--muted); }
+.empty strong { color: var(--ink); display: block; margin-bottom: 4px; }
+
+@media (prefers-reduced-motion: reduce) { .track i { transition: none; } }
+</style>
+
+<div class="wrap" id="app">
+  <header class="top">
+    <h1><span>Highlighted</span> Words</h1>
+    <p class="summary" id="summary">Loading your words…</p>
+  </header>
+  <div id="view">
+    <div class="empty"><strong>Loading your decks</strong>Your words and progress load from your Claude account.</div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const DAY = 86400000;
+  // Days until the next review after reaching each level. Level 3+ counts as mastered.
+  const INTERVALS = [0, 1, 3, 7, 21, 60];
+  const MASTERED = 3;
+  const NEW_PER_SESSION = 10;
+  const MAX_SESSION = 30;
+
+  let words = [];          // [{id, word, ...}]
+  let prog = {};           // wordId -> {level, due, seen, lapses, last}
+  let progCol = null;      // db collection for this viewer's progress
+  let loaded = false;
+  let dbMissing = false;
+  let saveBroken = false;
+  let screen = { name: "home" };
+  let sess = null;
+
+  const view = document.getElementById("view");
+  const summaryEl = document.getElementById("summary");
+
+  function el(tag, attrs, ...kids) {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (k === "on") for (const [ev, fn] of Object.entries(v)) n.addEventListener(ev, fn);
+      else if (v !== false && v != null) n.setAttribute(k, v === true ? "" : v);
+    }
+    for (const k of kids.flat()) if (k != null && k !== false) n.append(k);
+    return n;
+  }
+
+  const dayStart = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
+  const status = w => { const p = prog[w.id]; return !p ? "new" : p.level >= MASTERED ? "mastered" : "learning"; };
+  const isDue = (w, now) => { const p = prog[w.id]; return !!p && p.due <= now; };
+
+  function books() {
+    const map = new Map();
+    for (const w of words) {
+      if (!map.has(w.bookSlug)) map.set(w.bookSlug, { slug: w.bookSlug, title: w.book, author: w.author, words: [] });
+      map.get(w.bookSlug).words.push(w);
+    }
+    for (const b of map.values()) b.words.sort((a, c) => (a.order ?? 0) - (c.order ?? 0));
+    return [...map.values()];
+  }
+
+  function counts(list) {
+    const now = Date.now();
+    const c = { total: list.length, mastered: 0, learning: 0, new: 0, due: 0 };
+    for (const w of list) { c[status(w)]++; if (isDue(w, now)) c.due++; }
+    return c;
+  }
+
+  function sentence(text, mode) {
+    const p = el("p", { class: "sentence" });
+    String(text || "").split(/\*\*(.+?)\*\*/).forEach((part, i) => {
+      if (i % 2 === 0) { if (part) p.append(part); }
+      else if (mode === "blank") p.append(el("span", { class: "blank" }, part[0], el("span", { class: "gap", "aria-label": "blank" })));
+      else p.append(el("mark", {}, part));
+    });
+    return p;
+  }
+
+  function fmtDate(t) {
+    const days = Math.round((dayStart(t) - dayStart(Date.now())) / DAY);
+    if (days <= 0) return "today";
+    if (days === 1) return "tomorrow";
+    return new Date(t).toLocaleDateString(undefined, { weekday: days < 7 ? "long" : undefined, day: "numeric", month: "short" });
+  }
+
+  /* ---------- Home ---------- */
+  function renderHome() {
+    const all = counts(words);
+    summaryEl.textContent = !loaded ? "Loading your words…"
+      : words.length ? `${all.total} words · ${all.mastered} mastered · ${all.due} to review now`
+      : "No words yet";
+    const out = [];
+    if (dbMissing) out.push(el("div", { class: "banner" }, "Your words couldn't load here. Open this page on claude.ai while signed in."));
+    if (saveBroken) out.push(el("div", { class: "banner" }, "Your progress isn't being saved on this device. Reload the page; if it keeps happening, tell Claude."));
+    if (loaded && !words.length) {
+      out.push(el("div", { class: "empty" }, el("strong", {}, "No words yet"),
+        "Mark words in blue as you read, photograph the pages and send them to Claude. They'll show up here as a deck."));
+    }
+    const decks = el("div", { class: "decks" });
+    for (const b of books()) {
+      const c = counts(b.words);
+      const avail = Math.min(MAX_SESSION, c.due + Math.min(NEW_PER_SESSION, c.new));
+      const pct = n => (100 * n / c.total).toFixed(2) + "%";
+      decks.append(el("section", { class: "deck" },
+        el("div", {}, el("h2", {}, b.title), b.author ? el("p", { class: "by" }, b.author) : null),
+        el("div", { class: "bar", role: "img", "aria-label": `${c.mastered} mastered, ${c.learning} learning, ${c.new} new` },
+          el("i", { class: "m", style: `width:${pct(c.mastered)}` }), el("i", { class: "l", style: `width:${pct(c.learning)}` })),
+        el("div", { class: "legend" },
+          el("span", {}, el("span", { class: "dot", style: "background:var(--good)" }), el("b", {}, c.mastered), " mastered"),
+          el("span", {}, el("span", { class: "dot", style: "background:var(--accent)" }), el("b", {}, c.learning), " learning"),
+          el("span", {}, el("span", { class: "dot", style: "background:var(--line)" }), el("b", {}, c.new), " new")),
+        el("div", { class: "actions" },
+          avail
+            ? el("button", { class: "btn primary", on: { click: () => startSession(b.slug, false) } }, `Study ${avail} word${avail === 1 ? "" : "s"}`)
+            : el("button", { class: "btn primary", on: { click: () => startSession(b.slug, true) } }, "Practise anyway"),
+          el("button", { class: "btn quiet", on: { click: () => go({ name: "list", slug: b.slug }) } }, "Word list")),
+        !avail ? el("p", { class: "how" }, `All caught up. Next review ${fmtDate(nextDue(b.words))}.`) : null));
+    }
+    out.push(decks);
+    if (words.length) out.push(el("p", { class: "how" },
+      "Words you know come back after 1, 3, 7, 21 and 60 days. Once you know a word twice, its card switches to fill-in-the-blank. A word you miss goes back to the start."));
+    view.replaceChildren(...out);
+  }
+
+  function nextDue(list) {
+    let t = Infinity;
+    for (const w of list) { const p = prog[w.id]; if (p && p.due < t) t = p.due; }
+    return t === Infinity ? Date.now() : t;
+  }
+
+  /* ---------- Word list ---------- */
+  function renderList(slug) {
+    const b = books().find(x => x.slug === slug);
+    if (!b) return go({ name: "home" });
+    const list = el("div", { class: "list" });
+    for (const w of b.words) {
+      const s = status(w);
+      const p = prog[w.id];
+      const body = el("div", { hidden: true },
+        sentence(w.sentence, "mark"),
+        el("p", { class: "detail" }, `${w.pos} · ≈ ${w.synonym}`),
+        w.note ? el("p", { class: "detail" }, w.note) : null,
+        el("p", { class: "source" }, `p. ${w.page}` + (p ? ` · next review ${fmtDate(p.due)}` : "")));
+      list.append(el("button", { class: "row", on: { click: () => { body.hidden = !body.hidden; } } },
+        el("div", { class: "head" }, el("span", { class: "w" }, w.word), el("span", { class: `chip ${s}` }, s)),
+        el("span", { class: "m" }, w.meaning), body));
+    }
+    view.replaceChildren(
+      el("div", { class: "studybar" },
+        el("button", { class: "close", on: { click: () => go({ name: "home" }) } }, "← Decks"),
+        el("span", { class: "count" }, `${b.words.length} words`)),
+      el("h2", { class: "word", style: "font-size:22px" }, b.title),
+      list);
+  }
+
+  /* ---------- Study ---------- */
+  function startSession(slug, practice) {
+    const now = Date.now();
+    const list = books().find(b => b.slug === slug)?.words || [];
+    let queue;
+    if (practice) {
+      queue = list.filter(w => prog[w.id]).sort((a, c) => prog[a.id].last - prog[c.id].last).slice(0, 15);
+      if (!queue.length) queue = list.slice(0, 15);
+    } else {
+      const due = list.filter(w => isDue(w, now)).sort((a, c) => prog[a.id].due - prog[c.id].due);
+      const fresh = list.filter(w => !prog[w.id]).slice(0, NEW_PER_SESSION);
+      queue = [...due, ...fresh].slice(0, MAX_SESSION);
+    }
+    const masteredBefore = list.filter(w => status(w) === "mastered").length;
+    sess = { slug, practice, queue, idx: 0, revealed: false, knew: 0, missed: 0, requeued: {}, masteredBefore };
+    go({ name: "study" });
+  }
+
+  function renderStudy() {
+    if (sess.idx >= sess.queue.length) return renderDone();
+    const w = sess.queue[sess.idx];
+    const p = prog[w.id];
+    const recall = !!p && p.level >= 2;
+    const card = el("div", { class: "card" });
+    if (recall) {
+      card.append(el("p", { class: "kind" }, "Fill in the word"), sentence(w.sentence, "blank"), el("p", { class: "hint" }, w.meaning));
+    } else {
+      card.append(el("p", { class: "kind" }, status(w) === "new" ? "New word" : "What does it mean here?"),
+        el("h2", { class: "word" }, el("span", {}, w.word)), sentence(w.sentence, "mark"));
+    }
+    if (sess.revealed) {
+      card.append(recall
+        ? el("div", { class: "back" }, el("h2", { class: "word" }, el("span", {}, w.word)), sentence(w.sentence, "mark"),
+            el("p", { class: "detail" }, `${w.pos} · ≈ ${w.synonym}`))
+        : el("div", { class: "back" }, el("p", { class: "meaning" }, w.meaning),
+            el("p", { class: "detail" }, `${w.pos} · ≈ ${w.synonym}`),
+            w.note ? el("p", { class: "detail" }, w.note) : null,
+            el("p", { class: "source" }, `${w.book}, p. ${w.page}`)));
+    }
+    const controls = sess.revealed
+      ? el("div", { class: "answer" },
+          el("button", { class: "no", on: { click: () => answer(false) } }, "I didn't know this word"),
+          el("button", { class: "yes", on: { click: () => answer(true) } }, "I knew this word"))
+      : el("button", { class: "btn primary reveal", on: { click: reveal } }, recall ? "Show the word" : "Show meaning");
+    const done = sess.idx, total = sess.queue.length;
+    view.replaceChildren(
+      el("div", { class: "studybar" },
+        el("button", { class: "close", on: { click: endSession } }, "✕ Stop"),
+        el("span", { class: "count" }, `${done + 1} / ${total}`)),
+      el("div", { class: "track" }, el("i", { style: `width:${(100 * done / total).toFixed(1)}%` })),
+      card, controls,
+      el("p", { class: "keys" }, sess.revealed ? "← didn't know · → knew it" : "Space to reveal"));
+  }
+
+  function reveal() { sess.revealed = true; renderStudy(); }
+
+  function answer(knew) {
+    const w = sess.queue[sess.idx];
+    const now = Date.now();
+    const old = prog[w.id];
+    const p = { level: 0, due: now, seen: 0, lapses: 0, ...(old || {}) };
+    p.seen += 1; p.last = now;
+    if (knew) {
+      sess.knew++;
+      // Practising a word that isn't due yet doesn't move its schedule.
+      if (!old || old.due <= now) {
+        p.level = Math.min(p.level + 1, INTERVALS.length - 1);
+        p.due = dayStart(now) + INTERVALS[p.level] * DAY;
+      }
+    } else {
+      sess.missed++;
+      p.level = 0; p.due = now; p.lapses += 1;
+      const n = sess.requeued[w.id] || 0;
+      if (n < 2) {
+        sess.requeued[w.id] = n + 1;
+        sess.queue.splice(Math.min(sess.idx + 4, sess.queue.length), 0, w);
+      }
+    }
+    prog[w.id] = p;
+    save(w.id, p);
+    sess.idx++; sess.revealed = false;
+    renderStudy();
+  }
+
+  function renderDone() {
+    const list = books().find(b => b.slug === sess.slug)?.words || [];
+    const masteredNow = list.filter(w => status(w) === "mastered").length;
+    const gained = masteredNow - sess.masteredBefore;
+    view.replaceChildren(
+      el("div", { class: "card done" },
+        el("h2", {}, "Session done"),
+        el("div", { class: "tally" },
+          el("div", {}, el("b", { style: "color:var(--good)" }, sess.knew), "knew"),
+          el("div", {}, el("b", { style: "color:var(--bad)" }, sess.missed), "didn't know")),
+        el("p", { class: "hint" }, gained > 0
+          ? `${gained} more word${gained === 1 ? "" : "s"} mastered. ${masteredNow} of ${list.length} in this book.`
+          : `${masteredNow} of ${list.length} words mastered in this book.`),
+        el("button", { class: "btn primary", on: { click: endSession } }, "Back to decks")));
+  }
+
+  function endSession() { sess = null; go({ name: "home" }); }
+
+  document.addEventListener("keydown", e => {
+    if (screen.name !== "study" || !sess || sess.idx >= sess.queue.length) return;
+    if (e.target.closest?.("button") && (e.key === " " || e.key === "Enter")) return;
+    if (!sess.revealed && (e.key === " " || e.key === "Enter")) { e.preventDefault(); reveal(); }
+    else if (sess.revealed && (e.key === "ArrowLeft" || e.key === "1")) answer(false);
+    else if (sess.revealed && (e.key === "ArrowRight" || e.key === "2")) answer(true);
+  });
+
+  /* ---------- Saving ---------- */
+  const pending = {};
+  function save(id, p) {
+    if (!progCol) { saveBroken = true; return; }
+    pending[id] = (pending[id] || Promise.resolve())
+      .then(() => progCol.doc(id).set(p))
+      .catch(() => { saveBroken = true; });
+  }
+
+  /* ---------- Routing ---------- */
+  function go(s) { screen = s; render(); window.scrollTo(0, 0); }
+  function render() {
+    if (screen.name === "study" && sess) renderStudy();
+    else if (screen.name === "list") renderList(screen.slug);
+    else renderHome();
+  }
+  render();
+
+  /* ---------- Data ---------- */
+  (async () => {
+    const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
+    if (!db) { dbMissing = true; loaded = true; return render(); }
+    db.collection("words").onSnapshot(snap => {
+      words = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      loaded = true;
+      if (screen.name !== "study") render();
+    }, () => { dbMissing = true; loaded = true; render(); });
+    const uid = user ? await user.id() : null;
+    if (!uid) { saveBroken = true; return render(); }
+    progCol = db.collection("data/users/" + uid);
+    progCol.onSnapshot(snap => {
+      const next = {};
+      for (const d of snap.docs) next[d.id] = d.data();
+      prog = next;
+      if (screen.name !== "study") render();
+    });
+  })();
+})();
+</script>
